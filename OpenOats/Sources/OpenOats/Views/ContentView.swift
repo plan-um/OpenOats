@@ -21,96 +21,14 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Compact header
             topBar
-
             Divider()
-
-            // Post-session banner
-            if let lastSession = coordinator.lastEndedSession, lastSession.utteranceCount > 0 {
-                HStack {
-                    Text(s.sessionEnded(lastSession.utteranceCount))
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Button {
-                        openWindow(id: "notes")
-                    } label: {
-                        Label(s.generateNotes, systemImage: "sparkles")
-                            .font(.system(size: 12))
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(.ultraThinMaterial)
-
-                Divider()
-            }
-
-            // Main content: Suggestions
-            VStack(alignment: .leading, spacing: 0) {
-                sectionHeader(s.suggestions)
-                SuggestionsView(
-                    suggestions: suggestionEngine?.suggestions ?? [],
-                    isGenerating: suggestionEngine?.isGenerating ?? false,
-                    lang: settings.appLanguage
-                )
-            }
-
+            postSessionBanner
+            suggestionsSection
             Divider()
-
-            // Collapsible transcript
-            DisclosureGroup(isExpanded: $isTranscriptExpanded) {
-                TranscriptView(
-                    utterances: transcriptStore.utterances,
-                    volatileYouText: transcriptStore.volatileYouText,
-                    volatileThemText: transcriptStore.volatileThemText,
-                    lang: settings.appLanguage
-                )
-                .frame(height: 150)
-            } label: {
-                HStack(spacing: 6) {
-                    Text(s.transcript)
-                        .font(.system(size: 12, weight: .medium))
-                    if !transcriptStore.utterances.isEmpty {
-                        Text("(\(transcriptStore.utterances.count))")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.tertiary)
-                    }
-                    Spacer()
-                    if isTranscriptExpanded && !transcriptStore.utterances.isEmpty {
-                        Button {
-                            copyTranscript()
-                        } label: {
-                            Image(systemName: "doc.on.doc")
-                                .font(.system(size: 11))
-                                .foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .help(s.copyTranscript)
-                    }
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-
+            transcriptSection
             Divider()
-
-            // Bottom bar: live indicator + model
-            ControlBar(
-                isRunning: isRunning,
-                audioLevel: audioLevel,
-                modelDisplayName: settings.activeModelDisplay,
-                transcriptionPrompt: s.downloadPrompt(for: settings.transcriptionModel),
-                statusMessage: transcriptionEngine?.assetStatus,
-                errorMessage: transcriptionEngine?.lastError,
-                needsDownload: transcriptionEngine?.needsModelDownload ?? false,
-                onToggle: isRunning ? stopSession : startSession,
-                onConfirmDownload: confirmDownloadAndStart,
-                lang: settings.appLanguage
-            )
+            controlBarSection
         }
         .frame(minWidth: 360, maxWidth: 600, minHeight: 400)
         .background(.ultraThinMaterial)
@@ -203,6 +121,95 @@ struct ContentView: View {
                 audioLevel = 0
             }
         }
+    }
+
+    // MARK: - Extracted Sections
+
+    @ViewBuilder
+    private var postSessionBanner: some View {
+        if let lastSession = coordinator.lastEndedSession, lastSession.utteranceCount > 0 {
+            HStack {
+                Text(s.sessionEnded(lastSession.utteranceCount))
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button {
+                    openWindow(id: "notes")
+                } label: {
+                    Label(s.generateNotes, systemImage: "sparkles")
+                        .font(.system(size: 12))
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(.ultraThinMaterial)
+
+            Divider()
+        }
+    }
+
+    private var suggestionsSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader(s.suggestions)
+            SuggestionsView(
+                suggestions: suggestionEngine?.suggestions ?? [],
+                isGenerating: suggestionEngine?.isGenerating ?? false,
+                lang: settings.appLanguage
+            )
+        }
+    }
+
+    private var transcriptSection: some View {
+        DisclosureGroup(isExpanded: $isTranscriptExpanded) {
+            TranscriptView(
+                utterances: transcriptStore.utterances,
+                volatileYouText: transcriptStore.volatileYouText,
+                volatileThemText: transcriptStore.volatileThemText,
+                lang: settings.appLanguage
+            )
+            .frame(height: 150)
+        } label: {
+            HStack(spacing: 6) {
+                Text(s.transcript)
+                    .font(.system(size: 12, weight: .medium))
+                if !transcriptStore.utterances.isEmpty {
+                    Text("(\(transcriptStore.utterances.count))")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.tertiary)
+                }
+                Spacer()
+                if isTranscriptExpanded && !transcriptStore.utterances.isEmpty {
+                    Button {
+                        copyTranscript()
+                    } label: {
+                        Image(systemName: "doc.on.doc")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help(s.copyTranscript)
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+    }
+
+    private var controlBarSection: some View {
+        ControlBar(
+            isRunning: isRunning,
+            audioLevel: audioLevel,
+            modelDisplayName: settings.activeModelDisplay,
+            transcriptionPrompt: s.downloadPrompt(for: settings.transcriptionModel),
+            statusMessage: transcriptionEngine?.assetStatus,
+            errorMessage: transcriptionEngine?.lastError,
+            needsDownload: transcriptionEngine?.needsModelDownload ?? false,
+            onToggle: isRunning ? stopSession : startSession,
+            onConfirmDownload: confirmDownloadAndStart,
+            lang: settings.appLanguage
+        )
     }
 
     // MARK: - Top Bar
