@@ -40,8 +40,20 @@ final class NotesEngine {
         }
 
         let transcriptText = formatTranscript(transcript)
+        let languageCode = settings.transcriptionLocale.split(separator: "-").first.map(String.init)?.lowercased() ?? "en"
+        let languageInstruction: String
+        switch languageCode {
+        case "ko": languageInstruction = "IMPORTANT: Write ALL notes in Korean (한국어). Section headers, summaries, and all content must be in Korean."
+        case "ja": languageInstruction = "IMPORTANT: Write ALL notes in Japanese (日本語). Section headers, summaries, and all content must be in Japanese."
+        case "zh": languageInstruction = "IMPORTANT: Write ALL notes in Chinese (中文). Section headers, summaries, and all content must be in Chinese."
+        case "en": languageInstruction = ""
+        default: languageInstruction = "IMPORTANT: Write ALL notes in the same language as the transcript."
+        }
+        let systemPrompt = languageInstruction.isEmpty
+            ? template.systemPrompt
+            : template.systemPrompt + "\n\n" + languageInstruction
         let messages: [OpenRouterClient.Message] = [
-            .init(role: "system", content: template.systemPrompt),
+            .init(role: "system", content: systemPrompt),
             .init(role: "user", content: "Here is the meeting transcript:\n\n\(transcriptText)\n\nGenerate the meeting notes in markdown:")
         ]
 

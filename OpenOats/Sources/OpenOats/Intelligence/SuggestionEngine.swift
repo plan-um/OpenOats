@@ -580,6 +580,15 @@ final class SuggestionEngine {
             evidenceText += "[\(header)]:\n\(result.text)\n\n"
         }
 
+        let languageCode = settings.transcriptionLocale.split(separator: "-").first.map(String.init)?.lowercased() ?? "en"
+        let langRule: String
+        switch languageCode {
+        case "ko": langRule = "\n- Write headline, coachingLine, and evidenceLine in Korean (한국어)"
+        case "ja": langRule = "\n- Write headline, coachingLine, and evidenceLine in Japanese (日本語)"
+        case "zh": langRule = "\n- Write headline, coachingLine, and evidenceLine in Chinese (中文)"
+        default: langRule = ""
+        }
+
         let system = """
         You are a real-time meeting copilot generating ONE suggestion for the user. \
         The surfacing gate has already approved this moment. Generate a concise, \
@@ -592,7 +601,7 @@ final class SuggestionEngine {
         - No filler or hedging
         - Tie the suggestion to a concrete moment in the conversation
         - Ground it in the retrieved KB evidence
-        - Prefer a suggested question, reframing, or caution the user can use immediately
+        - Prefer a suggested question, reframing, or caution the user can use immediately\(langRule)
 
         Output only valid JSON:
         {"headline":"string (≤10 words)","coachingLine":"string (one sentence, actionable)","evidenceLine":"string (source reference or key quote)"}
