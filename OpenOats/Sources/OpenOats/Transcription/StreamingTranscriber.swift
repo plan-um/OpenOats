@@ -194,15 +194,14 @@ final class StreamingTranscriber: @unchecked Sendable {
                     language: language,
                     usePrefillPrompt: true
                 )
-                let results = try await whisperKit.transcribe(
-                    audioArray: [samples],
+                let results: [TranscriptionResult] = try await whisperKit.transcribe(
+                    audioArray: samples,
                     decodeOptions: options
                 )
                 text = results
-                    .flatMap(\.segments)
-                    .map(\.text)
+                    .map { $0.text }
                     .joined(separator: " ")
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
             }
             guard !text.isEmpty else { return }
             log.info("[\(self.speaker.rawValue)] transcribed: \(text.prefix(80))")
