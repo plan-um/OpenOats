@@ -22,6 +22,7 @@ enum TranscriptionModel: String, CaseIterable, Identifiable {
     case parakeetV2
     case parakeetV3
     case qwen3ASR06B
+    case whisperLargeV3
 
     var id: String { rawValue }
 
@@ -30,6 +31,7 @@ enum TranscriptionModel: String, CaseIterable, Identifiable {
         case .parakeetV2: "Parakeet TDT v2"
         case .parakeetV3: "Parakeet TDT v3"
         case .qwen3ASR06B: "Qwen3 ASR 0.6B"
+        case .whisperLargeV3: "Whisper large-v3 (Multilingual)"
         }
     }
 
@@ -39,12 +41,14 @@ enum TranscriptionModel: String, CaseIterable, Identifiable {
             "Transcription requires a one-time model download."
         case .qwen3ASR06B:
             "Qwen3 ASR requires a one-time model download."
+        case .whisperLargeV3:
+            "Whisper large-v3 requires a one-time model download (~626MB). Supports 99+ languages including Korean, Japanese, Chinese, and more."
         }
     }
 
     var supportsExplicitLanguageHint: Bool {
         switch self {
-        case .qwen3ASR06B:
+        case .qwen3ASR06B, .whisperLargeV3:
             true
         case .parakeetV2, .parakeetV3:
             false
@@ -53,7 +57,7 @@ enum TranscriptionModel: String, CaseIterable, Identifiable {
 
     var localeFieldTitle: String {
         switch self {
-        case .qwen3ASR06B:
+        case .qwen3ASR06B, .whisperLargeV3:
             "Language Hint"
         case .parakeetV2, .parakeetV3:
             "Locale"
@@ -68,6 +72,8 @@ enum TranscriptionModel: String, CaseIterable, Identifiable {
             "Parakeet TDT v3 auto-detects among its supported languages. Locale changes do not affect this model."
         case .qwen3ASR06B:
             "Optional. Used as a language hint for Qwen3 ASR. Enter a locale such as en-US, fr-FR, or ja-JP. Applies when a new session starts."
+        case .whisperLargeV3:
+            "Set the language for Whisper transcription. Use ko-KR for Korean, en-US for English, ja-JP for Japanese, etc. Supports 99+ languages."
         }
     }
 }

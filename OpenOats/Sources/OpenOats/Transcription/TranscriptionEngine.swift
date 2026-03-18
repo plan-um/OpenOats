@@ -1,6 +1,7 @@
 import AVFoundation
 import CoreAudio
 import FluidAudio
+import WhisperKit
 import Observation
 import os
 
@@ -48,6 +49,7 @@ final class TranscriptionEngine {
     private var micAsrManager: AsrManager?
     private var systemAsrManager: AsrManager?
     private var qwen3Manager: Qwen3AsrManager?
+    private var whisperKit: WhisperKit?
     private var vadManager: VadManager?
     private var currentTranscriptionModel: TranscriptionModel?
 
@@ -135,6 +137,19 @@ final class TranscriptionEngine {
                 self.qwen3Manager = qwen3
                 self.micAsrManager = nil
                 self.systemAsrManager = nil
+                self.whisperKit = nil
+            case .whisperLargeV3:
+                assetStatus = "Downloading Whisper large-v3..."
+                let config = WhisperKitConfig(
+                    model: "openai_whisper-large-v3-v20240930_626MB",
+                    verbose: false,
+                    prewarm: true
+                )
+                let kit = try await WhisperKit(config)
+                self.whisperKit = kit
+                self.micAsrManager = nil
+                self.systemAsrManager = nil
+                self.qwen3Manager = nil
             }
 
             assetStatus = "Loading VAD model..."
@@ -461,6 +476,19 @@ final class TranscriptionEngine {
                 onPartial: onPartial,
                 onFinal: onFinal
             )
+        case .whisperLargeV3:
+            guard let whisperKit else {
+                fatalError("Whisper transcription requested without an initialized WhisperKit")
+            }
+            let languageCode = whisperLanguageCode(for: locale)
+            return StreamingTranscriber(
+                whisperKit: whisperKit,
+                language: languageCode,
+                vadManager: vadManager,
+                speaker: speaker,
+                onPartial: onPartial,
+                onFinal: onFinal
+            )
         }
     }
 
@@ -495,6 +523,12 @@ final class TranscriptionEngine {
             )
         case .qwen3ASR06B:
             return !Qwen3AsrModels.modelsExist(at: Qwen3AsrModels.defaultCacheDirectory())
+        case .whisperLargeV3:
+            // WhisperKit manages its own model cache via HuggingFace Hub
+            let fm = FileManager.default
+            let cacheDir = fm.urls(for: .cachesDirectory, in: .userDomainMask).first!
+                .appendingPathComponent("huggingface/models/argmaxinc/whisperkit-coreml")
+            return !fm.fileExists(atPath: cacheDir.path)
         }
     }
 
@@ -522,5 +556,10 @@ final class TranscriptionEngine {
         let languageCode = normalizedLanguageCode(for: locale)
         guard let languageCode else { return nil }
         return Qwen3AsrConfig.Language(from: languageCode)
+    }
+
+    /// Extract the base language code for WhisperKit (e.g. "ko" from "ko-KR").
+    private func whisperLanguageCode(for locale: Locale) -> String? {
+        normalizedLanguageCode(for: locale)
     }
 }
