@@ -1,7 +1,6 @@
 import AVFoundation
 import CoreAudio
 import FluidAudio
-import WhisperKit
 import Observation
 import os
 
@@ -49,7 +48,6 @@ final class TranscriptionEngine {
     private var micAsrManager: AsrManager?
     private var systemAsrManager: AsrManager?
     private var qwen3Manager: Qwen3AsrManager?
-    private var whisperKit: WhisperKit?
     private var vadManager: VadManager?
     private var currentTranscriptionModel: TranscriptionModel?
 
@@ -137,16 +135,18 @@ final class TranscriptionEngine {
                 self.qwen3Manager = qwen3
                 self.micAsrManager = nil
                 self.systemAsrManager = nil
-                self.whisperKit = nil
-            case .whisperLargeV3:
-                assetStatus = "Downloading Whisper large-v3..."
-                let config = WhisperKitConfig(
-                    model: "openai_whisper-large-v3-v20240930_626MB",
-                    verbose: false,
-                    prewarm: true
-                )
-                let kit = try await WhisperKit(config)
-                self.whisperKit = kit
+            case .remoteQwen3ASR:
+                assetStatus = "Connecting to remote ASR server..."
+                // Validate the remote server is reachable
+                let baseURLString = settings.remoteASRBaseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+                guard let baseURL = URL(string: baseURLString) else {
+                    throw NSError(domain: "OpenOats", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid remote ASR URL: \(baseURLString)"])
+                }
+                let healthURL = baseURL.appendingPathComponent("/health")
+                let (_, response) = try await URLSession.shared.data(from: healthURL)
+                guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+                    throw NSError(domain: "OpenOats", code: 2, userInfo: [NSLocalizedDescriptionKey: "Remote ASR server not reachable at \(baseURLString)"])
+                }
                 self.micAsrManager = nil
                 self.systemAsrManager = nil
                 self.qwen3Manager = nil
@@ -476,13 +476,14 @@ final class TranscriptionEngine {
                 onPartial: onPartial,
                 onFinal: onFinal
             )
-        case .whisperLargeV3:
-            guard let whisperKit else {
-                fatalError("Whisper transcription requested without an initialized WhisperKit")
+        case .remoteQwen3ASR:
+            let baseURLString = settings.remoteASRBaseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            guard let remoteURL = URL(string: baseURLString) else {
+                fatalError("Invalid remote ASR URL")
             }
-            let languageCode = whisperLanguageCode(for: locale)
+            let languageCode = normalizedLanguageCode(for: locale)
             return StreamingTranscriber(
-                whisperKit: whisperKit,
+                remoteURL: remoteURL,
                 language: languageCode,
                 vadManager: vadManager,
                 speaker: speaker,
@@ -523,12 +524,8 @@ final class TranscriptionEngine {
             )
         case .qwen3ASR06B:
             return !Qwen3AsrModels.modelsExist(at: Qwen3AsrModels.defaultCacheDirectory())
-        case .whisperLargeV3:
-            // WhisperKit manages its own model cache via HuggingFace Hub
-            let fm = FileManager.default
-            let cacheDir = fm.urls(for: .cachesDirectory, in: .userDomainMask).first!
-                .appendingPathComponent("huggingface/models/argmaxinc/whisperkit-coreml")
-            return !fm.fileExists(atPath: cacheDir.path)
+        case .remoteQwen3ASR:
+            return false // No local download needed — model runs on remote server
         }
     }
 
@@ -558,8 +555,4 @@ final class TranscriptionEngine {
         return Qwen3AsrConfig.Language(from: languageCode)
     }
 
-    /// Extract the base language code for WhisperKit (e.g. "ko" from "ko-KR").
-    private func whisperLanguageCode(for locale: Locale) -> String? {
-        normalizedLanguageCode(for: locale)
-    }
 }

@@ -7,6 +7,8 @@ struct RecordingConsentView: View {
     @Bindable var settings: AppSettings
     @State private var acknowledged = false
 
+    private var s: Strings { settings.strings }
+
     var body: some View {
         VStack(spacing: 0) {
             Spacer()
@@ -18,19 +20,13 @@ struct RecordingConsentView: View {
 
             Spacer().frame(height: 20)
 
-            Text("Recording Consent Notice")
+            Text(s.recordingConsentNotice)
                 .font(.system(size: 16, weight: .semibold))
                 .multilineTextAlignment(.center)
 
             Spacer().frame(height: 10)
 
-            Text("""
-            OpenOats records and transcribes audio from your microphone \
-            and system audio during meetings. Many jurisdictions require \
-            all-party consent before recording a conversation.
-
-            By using this app, you acknowledge that:
-            """)
+            Text(s.recordingConsentBody)
                 .font(.system(size: 13))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -40,16 +36,16 @@ struct RecordingConsentView: View {
             Spacer().frame(height: 12)
 
             VStack(alignment: .leading, spacing: 8) {
-                consentBullet("You are solely responsible for obtaining any required consent from all participants before recording.")
-                consentBullet("You will comply with all applicable local, state, and federal laws governing recording and wiretapping.")
-                consentBullet("The developers of OpenOats accept no liability for unauthorized or unlawful recording.")
+                consentBullet(s.consentBullet1)
+                consentBullet(s.consentBullet2)
+                consentBullet(s.consentBullet3)
             }
             .padding(.horizontal, 8)
 
             Spacer().frame(height: 16)
 
             Toggle(isOn: $acknowledged) {
-                Text("I understand and accept these obligations")
+                Text(s.consentAcknowledge)
                     .font(.system(size: 12, weight: .medium))
             }
             .toggleStyle(.checkbox)
@@ -57,7 +53,7 @@ struct RecordingConsentView: View {
             Spacer()
 
             HStack {
-                Button("Cancel") {
+                Button(s.cancel) {
                     withAnimation(.easeOut(duration: 0.2)) {
                         isPresented = false
                     }
@@ -74,7 +70,7 @@ struct RecordingConsentView: View {
                         isPresented = false
                     }
                 } label: {
-                    Text("I Agree")
+                    Text(s.iAgree)
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 20)

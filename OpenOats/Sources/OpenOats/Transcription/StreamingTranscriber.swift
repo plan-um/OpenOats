@@ -1,6 +1,5 @@
 @preconcurrency import AVFoundation
 import FluidAudio
-import WhisperKit
 import os
 
 /// Consumes an audio buffer stream, detects speech via Silero VAD,
@@ -9,7 +8,7 @@ final class StreamingTranscriber: @unchecked Sendable {
     private enum Backend: @unchecked Sendable {
         case parakeet(AsrManager)
         case qwen3(Qwen3AsrManager, Qwen3AsrConfig.Language?)
-        case whisper(WhisperKit, String?)
+        case remote(URL, String?)
     }
 
     private let backend: Backend
@@ -58,14 +57,14 @@ final class StreamingTranscriber: @unchecked Sendable {
     }
 
     init(
-        whisperKit: WhisperKit,
+        remoteURL: URL,
         language: String?,
         vadManager: VadManager,
         speaker: Speaker,
         onPartial: @escaping @Sendable (String) -> Void,
         onFinal: @escaping @Sendable (String) -> Void
     ) {
-        self.backend = .whisper(whisperKit, language)
+        self.backend = .remote(remoteURL, language)
         self.vadManager = vadManager
         self.speaker = speaker
         self.onPartial = onPartial
@@ -189,19 +188,8 @@ final class StreamingTranscriber: @unchecked Sendable {
                     language: qwenLanguage,
                     maxNewTokens: 512
                 ).trimmingCharacters(in: .whitespacesAndNewlines)
-            case .whisper(let whisperKit, let language):
-                let options = DecodingOptions(
-                    language: language,
-                    usePrefillPrompt: true
-                )
-                let results: [TranscriptionResult] = try await whisperKit.transcribe(
-                    audioArray: samples,
-                    decodeOptions: options
-                )
-                text = results
-                    .map { $0.text }
-                    .joined(separator: " ")
-                    .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+            case .remote(let baseURL, let language):
+                text = try await transcribeRemote(samples, baseURL: baseURL, language: language)
             }
             guard !text.isEmpty else { return }
             log.info("[\(self.speaker.rawValue)] transcribed: \(text.prefix(80))")
@@ -209,6 +197,34 @@ final class StreamingTranscriber: @unchecked Sendable {
         } catch {
             log.error("ASR error: \(error.localizedDescription)")
         }
+    }
+
+    /// Send audio samples to a remote ASR server via HTTP POST.
+    private func transcribeRemote(_ samples: [Float], baseURL: URL, language: String?) async throws -> String {
+        let url = baseURL.appendingPathComponent("/v1/transcribe")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
+        if let language {
+            request.setValue(language, forHTTPHeaderField: "X-Language")
+        }
+
+        // Convert [Float] to raw bytes
+        let data = samples.withUnsafeBufferPointer { ptr in
+            Data(buffer: ptr)
+        }
+        request.httpBody = data
+
+        let (responseData, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw RemoteASRError.serverError(String(data: responseData, encoding: .utf8) ?? "Unknown error")
+        }
+
+        struct TranscribeResponse: Decodable {
+            let text: String
+        }
+        let decoded = try JSONDecoder().decode(TranscribeResponse.self, from: responseData)
+        return decoded.text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// Extract [Float] samples from an AVAudioPCMBuffer, resampling if needed.
@@ -266,5 +282,15 @@ final class StreamingTranscriber: @unchecked Sendable {
             start: channelData[0],
             count: Int(outputBuffer.frameLength)
         ))
+    }
+}
+
+enum RemoteASRError: LocalizedError {
+    case serverError(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .serverError(let msg): "Remote ASR error: \(msg)"
+        }
     }
 }

@@ -5,6 +5,9 @@ struct OverlayContent: View {
     let suggestions: [Suggestion]
     let isGenerating: Bool
     let volatileThemText: String
+    let lang: AppLanguage
+
+    private var s: Strings { Strings(lang: lang) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -38,7 +41,7 @@ struct OverlayContent: View {
             }
 
             if suggestions.isEmpty && !isGenerating {
-                Text("Waiting for conversation...")
+                Text(s.waitingForConversation)
                     .font(.system(size: 12))
                     .foregroundStyle(.tertiary)
             }
@@ -47,7 +50,7 @@ struct OverlayContent: View {
                 HStack(spacing: 4) {
                     ProgressView()
                         .controlSize(.mini)
-                    Text("Evaluating...")
+                    Text(s.evaluating)
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }

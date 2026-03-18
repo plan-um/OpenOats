@@ -17,6 +17,8 @@ struct ContentView: View {
     @State private var showConsentSheet = false
     @State private var audioLevel: Float = 0
 
+    private var s: Strings { settings.strings }
+
     var body: some View {
         VStack(spacing: 0) {
             // Compact header
@@ -27,14 +29,14 @@ struct ContentView: View {
             // Post-session banner
             if let lastSession = coordinator.lastEndedSession, lastSession.utteranceCount > 0 {
                 HStack {
-                    Text("Session ended \u{00B7} \(lastSession.utteranceCount) utterances")
+                    Text(s.sessionEnded(lastSession.utteranceCount))
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                     Spacer()
                     Button {
                         openWindow(id: "notes")
                     } label: {
-                        Label("Generate Notes", systemImage: "sparkles")
+                        Label(s.generateNotes, systemImage: "sparkles")
                             .font(.system(size: 12))
                     }
                     .buttonStyle(.borderedProminent)
@@ -49,10 +51,11 @@ struct ContentView: View {
 
             // Main content: Suggestions
             VStack(alignment: .leading, spacing: 0) {
-                sectionHeader("SUGGESTIONS")
+                sectionHeader(s.suggestions)
                 SuggestionsView(
                     suggestions: suggestionEngine?.suggestions ?? [],
-                    isGenerating: suggestionEngine?.isGenerating ?? false
+                    isGenerating: suggestionEngine?.isGenerating ?? false,
+                    lang: settings.appLanguage
                 )
             }
 
@@ -63,12 +66,13 @@ struct ContentView: View {
                 TranscriptView(
                     utterances: transcriptStore.utterances,
                     volatileYouText: transcriptStore.volatileYouText,
-                    volatileThemText: transcriptStore.volatileThemText
+                    volatileThemText: transcriptStore.volatileThemText,
+                    lang: settings.appLanguage
                 )
                 .frame(height: 150)
             } label: {
                 HStack(spacing: 6) {
-                    Text("Transcript")
+                    Text(s.transcript)
                         .font(.system(size: 12, weight: .medium))
                     if !transcriptStore.utterances.isEmpty {
                         Text("(\(transcriptStore.utterances.count))")
@@ -85,7 +89,7 @@ struct ContentView: View {
                                 .foregroundStyle(.secondary)
                         }
                         .buttonStyle(.plain)
-                        .help("Copy transcript")
+                        .help(s.copyTranscript)
                     }
                 }
             }
@@ -99,19 +103,20 @@ struct ContentView: View {
                 isRunning: isRunning,
                 audioLevel: audioLevel,
                 modelDisplayName: settings.activeModelDisplay,
-                transcriptionPrompt: settings.transcriptionModel.downloadPrompt,
+                transcriptionPrompt: s.downloadPrompt(for: settings.transcriptionModel),
                 statusMessage: transcriptionEngine?.assetStatus,
                 errorMessage: transcriptionEngine?.lastError,
                 needsDownload: transcriptionEngine?.needsModelDownload ?? false,
                 onToggle: isRunning ? stopSession : startSession,
-                onConfirmDownload: confirmDownloadAndStart
+                onConfirmDownload: confirmDownloadAndStart,
+                lang: settings.appLanguage
             )
         }
         .frame(minWidth: 360, maxWidth: 600, minHeight: 400)
         .background(.ultraThinMaterial)
         .overlay {
             if showOnboarding {
-                OnboardingView(isPresented: $showOnboarding)
+                OnboardingView(isPresented: $showOnboarding, lang: settings.appLanguage)
                     .transition(.opacity)
             }
             if showConsentSheet {
@@ -222,7 +227,7 @@ struct ContentView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "folder")
                                 .font(.system(size: 10))
-                            Text("\(kb.fileCount) files")
+                            Text(s.filesCount(kb.fileCount))
                                 .font(.system(size: 11))
                         }
                         .foregroundStyle(.secondary)
@@ -230,7 +235,7 @@ struct ContentView: View {
                 }
 
                 if settings.kbFolderPath.isEmpty {
-                    Button("Set KB Folder...") {
+                    Button(s.setKBFolder) {
                         chooseKBFolder()
                     }
                     .buttonStyle(.plain)
@@ -246,9 +251,9 @@ struct ContentView: View {
                         }
                         .buttonStyle(.plain)
                         .foregroundStyle(.secondary)
-                        .help("Open in Finder")
+                        .help(s.openInFinder)
 
-                        Button("Change...") {
+                        Button(s.change) {
                             chooseKBFolder()
                         }
                         .buttonStyle(.plain)
@@ -266,7 +271,7 @@ struct ContentView: View {
                         coordinator.selectedTemplate = nil
                     } label: {
                         HStack {
-                            Text("None")
+                            Text(s.none)
                             if coordinator.selectedTemplate == nil {
                                 Image(systemName: "checkmark")
                             }
@@ -290,7 +295,7 @@ struct ContentView: View {
                         } else {
                             Image(systemName: "doc.text")
                                 .font(.system(size: 10))
-                            Text("Template")
+                            Text(s.template)
                                 .font(.system(size: 11))
                         }
                         Image(systemName: "chevron.down")
@@ -364,7 +369,8 @@ struct ContentView: View {
         let content = OverlayContent(
             suggestions: suggestionEngine?.suggestions ?? [],
             isGenerating: suggestionEngine?.isGenerating ?? false,
-            volatileThemText: transcriptStore.volatileThemText
+            volatileThemText: transcriptStore.volatileThemText,
+            lang: settings.appLanguage
         )
         overlayManager.toggle(content: content)
     }
@@ -374,7 +380,7 @@ struct ContentView: View {
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
-        panel.message = "Choose your knowledge base folder"
+        panel.message = s.chooseKBFolderMessage
 
         if panel.runModal() == .OK, let url = panel.url {
             settings.kbFolderPath = url.path
@@ -393,7 +399,7 @@ struct ContentView: View {
         let timeFmt = DateFormatter()
         timeFmt.dateFormat = "HH:mm:ss"
         let lines = transcriptStore.utterances.map { u in
-            "[\(timeFmt.string(from: u.timestamp))] \(u.speaker == .you ? "You" : "Them"): \(u.text)"
+            "[\(timeFmt.string(from: u.timestamp))] \(u.speaker == .you ? s.you : s.them): \(u.text)"
         }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(lines.joined(separator: "\n"), forType: .string)

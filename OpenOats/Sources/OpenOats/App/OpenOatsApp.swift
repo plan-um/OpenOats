@@ -26,7 +26,7 @@ struct OpenOatsApp: App {
             }
         }
 
-        Window("Notes", id: "notes") {
+        Window(settings.strings.notes, id: "notes") {
             NotesView(settings: settings)
                 .environment(coordinator)
         }

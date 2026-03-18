@@ -22,7 +22,7 @@ enum TranscriptionModel: String, CaseIterable, Identifiable {
     case parakeetV2
     case parakeetV3
     case qwen3ASR06B
-    case whisperLargeV3
+    case remoteQwen3ASR
 
     var id: String { rawValue }
 
@@ -31,7 +31,7 @@ enum TranscriptionModel: String, CaseIterable, Identifiable {
         case .parakeetV2: "Parakeet TDT v2"
         case .parakeetV3: "Parakeet TDT v3"
         case .qwen3ASR06B: "Qwen3 ASR 0.6B"
-        case .whisperLargeV3: "Whisper large-v3 (Multilingual)"
+        case .remoteQwen3ASR: "Qwen3 ASR 1.7B (Remote)"
         }
     }
 
@@ -41,14 +41,14 @@ enum TranscriptionModel: String, CaseIterable, Identifiable {
             "Transcription requires a one-time model download."
         case .qwen3ASR06B:
             "Qwen3 ASR requires a one-time model download."
-        case .whisperLargeV3:
-            "Whisper large-v3 requires a one-time model download (~626MB). Supports 99+ languages including Korean, Japanese, Chinese, and more."
+        case .remoteQwen3ASR:
+            "Qwen3 ASR 1.7B runs on a remote server. Configure the server URL in settings."
         }
     }
 
     var supportsExplicitLanguageHint: Bool {
         switch self {
-        case .qwen3ASR06B, .whisperLargeV3:
+        case .qwen3ASR06B, .remoteQwen3ASR:
             true
         case .parakeetV2, .parakeetV3:
             false
@@ -57,7 +57,7 @@ enum TranscriptionModel: String, CaseIterable, Identifiable {
 
     var localeFieldTitle: String {
         switch self {
-        case .qwen3ASR06B, .whisperLargeV3:
+        case .qwen3ASR06B, .remoteQwen3ASR:
             "Language Hint"
         case .parakeetV2, .parakeetV3:
             "Locale"
@@ -72,8 +72,8 @@ enum TranscriptionModel: String, CaseIterable, Identifiable {
             "Parakeet TDT v3 auto-detects among its supported languages. Locale changes do not affect this model."
         case .qwen3ASR06B:
             "Optional. Used as a language hint for Qwen3 ASR. Enter a locale such as en-US, fr-FR, or ja-JP. Applies when a new session starts."
-        case .whisperLargeV3:
-            "Set the language for Whisper transcription. Use ko-KR for Korean, en-US for English, ja-JP for Japanese, etc. Supports 99+ languages."
+        case .remoteQwen3ASR:
+            "Language hint for remote Qwen3 ASR 1.7B. Use ko-KR for Korean, en-US for English, ja-JP for Japanese, etc."
         }
     }
 }
@@ -162,6 +162,14 @@ final class AppSettings {
         didSet { UserDefaults.standard.set(openAIEmbedModel, forKey: "openAIEmbedModel") }
     }
 
+    var remoteASRBaseURL: String {
+        didSet { UserDefaults.standard.set(remoteASRBaseURL, forKey: "remoteASRBaseURL") }
+    }
+
+    var appLanguage: AppLanguage {
+        didSet { UserDefaults.standard.set(appLanguage.rawValue, forKey: "appLanguage") }
+    }
+
     /// Whether the user has acknowledged their obligation to comply with recording consent laws.
     var hasAcknowledgedRecordingConsent: Bool {
         didSet { UserDefaults.standard.set(hasAcknowledgedRecordingConsent, forKey: "hasAcknowledgedRecordingConsent") }
@@ -203,6 +211,8 @@ final class AppSettings {
         self.openAIEmbedBaseURL = defaults.string(forKey: "openAIEmbedBaseURL") ?? "http://localhost:8080"
         self.openAIEmbedApiKey = KeychainHelper.load(key: "openAIEmbedApiKey") ?? ""
         self.openAIEmbedModel = defaults.string(forKey: "openAIEmbedModel") ?? "text-embedding-3-small"
+        self.remoteASRBaseURL = defaults.string(forKey: "remoteASRBaseURL") ?? "http://mac-mini.local:9876"
+        self.appLanguage = AppLanguage(rawValue: defaults.string(forKey: "appLanguage") ?? "") ?? .english
         self.hasAcknowledgedRecordingConsent = defaults.bool(forKey: "hasAcknowledgedRecordingConsent")
 
         // Default to true (hidden) if key has never been set

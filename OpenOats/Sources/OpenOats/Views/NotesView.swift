@@ -3,6 +3,8 @@ import SwiftUI
 struct NotesView: View {
     @Bindable var settings: AppSettings
     @Environment(AppCoordinator.self) private var coordinator
+
+    private var s: Strings { settings.strings }
     @State private var selectedSessionID: String?
     @State private var loadedNotes: EnhancedNotes?
     @State private var loadedTranscript: [SessionRecord] = []
@@ -46,7 +48,7 @@ struct NotesView: View {
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                     }
-                    Text(session.title ?? "Untitled")
+                    Text(session.title ?? s.untitled)
                         .font(.system(size: 13, weight: .medium))
                         .lineLimit(1)
                     Spacer()
@@ -61,14 +63,14 @@ struct NotesView: View {
                     Text(session.startedAt, style: .date)
                     Text(session.startedAt, style: .time)
                     Spacer()
-                    Text("\(session.utteranceCount) utterances")
+                    Text(s.utterancesCount(session.utteranceCount))
                 }
                 .font(.system(size: 11))
                 .foregroundStyle(.tertiary)
             }
             .padding(.vertical, 2)
         }
-        .navigationTitle("Sessions")
+        .navigationTitle(s.sessions)
         .frame(minWidth: 200)
         .onChange(of: selectedSessionID) {
             loadSelectedSession()
@@ -90,7 +92,7 @@ struct NotesView: View {
                 }
             }
         } else {
-            ContentUnavailableView("Select a Session", systemImage: "doc.text", description: Text("Choose a session from the sidebar to view or generate notes."))
+            ContentUnavailableView(s.selectSession, systemImage: "doc.text", description: Text(s.selectSessionDesc))
         }
     }
 
@@ -100,11 +102,11 @@ struct NotesView: View {
                 HStack {
                     ProgressView()
                         .scaleEffect(0.8)
-                    Text("Generating notes...")
+                    Text(s.generatingNotes)
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Button("Cancel") {
+                    Button(s.cancel) {
                         coordinator.notesEngine.cancel()
                     }
                     .buttonStyle(.plain)
@@ -125,15 +127,19 @@ struct NotesView: View {
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text("Generated \(notes.generatedAt, style: .relative) ago")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.tertiary)
+                HStack(spacing: 4) {
+                    Text(s.generated)
+                    Text(notes.generatedAt, style: .relative)
+                    Text(s.ago)
+                }
+                .font(.system(size: 11))
+                .foregroundStyle(.tertiary)
 
                 Button {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(notes.markdown, forType: .string)
                 } label: {
-                    Label("Copy", systemImage: "doc.on.doc")
+                    Label(s.copy, systemImage: "doc.on.doc")
                         .font(.system(size: 12))
                 }
                 .buttonStyle(.bordered)
@@ -141,7 +147,7 @@ struct NotesView: View {
                 Button {
                     regenerateNotes()
                 } label: {
-                    Label("Regenerate", systemImage: "arrow.clockwise")
+                    Label(s.regenerate, systemImage: "arrow.clockwise")
                         .font(.system(size: 12))
                 }
                 .buttonStyle(.bordered)
@@ -172,7 +178,7 @@ struct NotesView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         ForEach(Array(loadedTranscript.prefix(20).enumerated()), id: \.offset) { _, record in
                             HStack(alignment: .top, spacing: 8) {
-                                Text(record.speaker == .you ? "You" : "Them")
+                                Text(record.speaker == .you ? s.you : s.them)
                                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
                                     .foregroundStyle(record.speaker == .you ? .blue : .green)
                                     .frame(width: 35, alignment: .trailing)
@@ -182,7 +188,7 @@ struct NotesView: View {
                             }
                         }
                         if loadedTranscript.count > 20 {
-                            Text("... and \(loadedTranscript.count - 20) more utterances")
+                            Text(s.moreUtterances(loadedTranscript.count - 20))
                                 .font(.system(size: 11))
                                 .foregroundStyle(.tertiary)
                                 .padding(.top, 4)
@@ -197,7 +203,7 @@ struct NotesView: View {
 
             // Template picker for generation
             HStack {
-                Picker("Template", selection: $selectedTemplateForGeneration) {
+                Picker(s.template, selection: $selectedTemplateForGeneration) {
                     ForEach(coordinator.templateStore.templates) { template in
                         Label(template.name, systemImage: template.icon).tag(Optional(template))
                     }
@@ -207,7 +213,7 @@ struct NotesView: View {
                 Button {
                     generateNotes(sessionID: sessionID)
                 } label: {
-                    Label("Generate Notes", systemImage: "sparkles")
+                    Label(s.generateNotes, systemImage: "sparkles")
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(loadedTranscript.isEmpty)

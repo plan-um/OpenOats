@@ -8,8 +8,11 @@ struct ControlBar: View {
     let statusMessage: String?
     let errorMessage: String?
     let needsDownload: Bool
+    let lang: AppLanguage
     let onToggle: () -> Void
     let onConfirmDownload: () -> Void
+
+    private var s: Strings { Strings(lang: lang) }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -30,7 +33,7 @@ struct ControlBar: View {
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    Button("Download Now") {
+                    Button(s.downloadNow) {
                         onConfirmDownload()
                     }
                     .buttonStyle(.borderedProminent)
@@ -66,7 +69,7 @@ struct ControlBar: View {
                                 .scaleEffect(1.0 + CGFloat(audioLevel) * 0.5)
                                 .animation(.easeOut(duration: 0.1), value: audioLevel)
 
-                            Text("Live")
+                            Text(s.live)
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundStyle(.primary)
                         } else {
@@ -74,7 +77,7 @@ struct ControlBar: View {
                                 .font(.system(size: 11))
                                 .foregroundStyle(.white)
 
-                            Text("Start")
+                            Text(s.start)
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundStyle(.white)
                         }

@@ -3,6 +3,9 @@ import SwiftUI
 struct SuggestionsView: View {
     let suggestions: [Suggestion]
     let isGenerating: Bool
+    let lang: AppLanguage
+
+    private var s: Strings { Strings(lang: lang) }
 
     var body: some View {
         ScrollView {
@@ -12,7 +15,7 @@ struct SuggestionsView: View {
                     HStack(spacing: 6) {
                         ProgressView()
                             .controlSize(.mini)
-                        Text("Evaluating...")
+                        Text(s.evaluating)
                             .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(.secondary)
                     }
@@ -29,10 +32,10 @@ struct SuggestionsView: View {
 
                 if suggestions.isEmpty && !isGenerating {
                     VStack(spacing: 8) {
-                        Text("No suggestions yet")
+                        Text(s.noSuggestionsYet)
                             .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(.secondary)
-                        Text("Suggestions appear when the conversation reaches a moment where your knowledge base can help.")
+                        Text(s.suggestionsHelpText)
                             .font(.system(size: 12))
                             .foregroundStyle(.tertiary)
                             .multilineTextAlignment(.center)

@@ -4,24 +4,27 @@ struct TranscriptView: View {
     let utterances: [Utterance]
     let volatileYouText: String
     let volatileThemText: String
+    let lang: AppLanguage
+
+    private var s: Strings { Strings(lang: lang) }
 
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 8) {
                     ForEach(utterances) { utterance in
-                        UtteranceBubble(utterance: utterance)
+                        UtteranceBubble(utterance: utterance, lang: lang)
                             .id(utterance.id)
                     }
 
                     // Volatile text
                     if !volatileYouText.isEmpty {
-                        VolatileIndicator(text: volatileYouText, speaker: .you)
+                        VolatileIndicator(text: volatileYouText, speaker: .you, lang: lang)
                             .id("volatile-you")
                     }
 
                     if !volatileThemText.isEmpty {
-                        VolatileIndicator(text: volatileThemText, speaker: .them)
+                        VolatileIndicator(text: volatileThemText, speaker: .them, lang: lang)
                             .id("volatile-them")
                     }
                 }
@@ -46,10 +49,11 @@ struct TranscriptView: View {
 
 private struct UtteranceBubble: View {
     let utterance: Utterance
+    let lang: AppLanguage
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(utterance.speaker == .you ? "You" : "Them")
+            Text(utterance.speaker == .you ? Strings(lang: lang).you : Strings(lang: lang).them)
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(utterance.speaker == .you ? Color.youColor : Color.themColor)
                 .frame(width: 36, alignment: .trailing)
@@ -65,10 +69,11 @@ private struct UtteranceBubble: View {
 private struct VolatileIndicator: View {
     let text: String
     let speaker: Speaker
+    let lang: AppLanguage
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(speaker == .you ? "You" : "Them")
+            Text(speaker == .you ? Strings(lang: lang).you : Strings(lang: lang).them)
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(speaker == .you ? Color.youColor : Color.themColor)
                 .frame(width: 36, alignment: .trailing)

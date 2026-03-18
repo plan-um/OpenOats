@@ -17,10 +17,21 @@ struct SettingsView: View {
     @State private var newTemplatePrompt = ""
     @FocusState private var focusedTemplateField: TemplateField?
 
+    private var s: Strings { settings.strings }
+
     var body: some View {
         Form {
-            Section("Meeting Notes") {
-                Text("Where meeting transcripts are saved as plain text files.")
+            Section(s.language) {
+                Picker(s.language, selection: $settings.appLanguage) {
+                    ForEach(AppLanguage.allCases) { lang in
+                        Text(lang.displayName).tag(lang)
+                    }
+                }
+                .font(.system(size: 12))
+            }
+
+            Section(s.meetingNotes) {
+                Text(s.meetingNotesDesc)
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
 
@@ -32,19 +43,19 @@ struct SettingsView: View {
 
                     Spacer()
 
-                    Button("Choose...") {
+                    Button(s.choose) {
                         chooseNotesFolder()
                     }
                 }
             }
 
-            Section("Knowledge Base") {
-                Text("Optional. Point this to a folder of notes, docs, or reference material (.md, .txt). During meetings, OpenOats searches this folder to surface relevant context and talking points.")
+            Section(s.knowledgeBase) {
+                Text(s.kbDesc)
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
 
                 HStack {
-                    Text(settings.kbFolderPath.isEmpty ? "Not set" : settings.kbFolderPath)
+                    Text(settings.kbFolderPath.isEmpty ? s.notSet : settings.kbFolderPath)
                         .font(.system(size: 12))
                         .foregroundStyle(settings.kbFolderPath.isEmpty ? .tertiary : .primary)
                         .lineLimit(1)
@@ -53,20 +64,20 @@ struct SettingsView: View {
                     Spacer()
 
                     if !settings.kbFolderPath.isEmpty {
-                        Button("Clear") {
+                        Button(s.clear) {
                             settings.kbFolderPath = ""
                         }
                         .font(.system(size: 12))
                     }
 
-                    Button("Choose...") {
+                    Button(s.choose) {
                         chooseKBFolder()
                     }
                 }
             }
 
-            Section("LLM Provider") {
-                Picker("Provider", selection: $settings.llmProvider) {
+            Section(s.llmProvider) {
+                Picker(s.provider, selection: $settings.llmProvider) {
                     ForEach(LLMProvider.allCases) { provider in
                         Text(provider.displayName).tag(provider)
                     }
@@ -74,22 +85,22 @@ struct SettingsView: View {
                 .font(.system(size: 12))
 
                 if settings.llmProvider == .openRouter {
-                    SecureField("API Key", text: $settings.openRouterApiKey)
+                    SecureField(s.apiKey, text: $settings.openRouterApiKey)
                         .font(.system(size: 12, design: .monospaced))
 
-                    TextField("Model", text: $settings.selectedModel, prompt: Text("e.g. google/gemini-3-flash-preview"))
+                    TextField(s.model, text: $settings.selectedModel, prompt: Text("e.g. google/gemini-3-flash-preview"))
                         .font(.system(size: 12, design: .monospaced))
                 } else {
                     TextField("Ollama URL", text: $settings.ollamaBaseURL, prompt: Text("http://localhost:11434"))
                         .font(.system(size: 12, design: .monospaced))
 
-                    TextField("Model", text: $settings.ollamaLLMModel, prompt: Text("e.g. qwen3:8b"))
+                    TextField(s.model, text: $settings.ollamaLLMModel, prompt: Text("e.g. qwen3:8b"))
                         .font(.system(size: 12, design: .monospaced))
                 }
             }
 
-            Section("Embedding Provider") {
-                Picker("Provider", selection: $settings.embeddingProvider) {
+            Section(s.embeddingProvider) {
+                Picker(s.provider, selection: $settings.embeddingProvider) {
                     ForEach(EmbeddingProvider.allCases) { provider in
                         Text(provider.displayName).tag(provider)
                     }
@@ -98,10 +109,10 @@ struct SettingsView: View {
 
                 switch settings.embeddingProvider {
                 case .voyageAI:
-                    SecureField("API Key", text: $settings.voyageApiKey)
+                    SecureField(s.apiKey, text: $settings.voyageApiKey)
                         .font(.system(size: 12, design: .monospaced))
                 case .ollama:
-                    TextField("Embedding Model", text: $settings.ollamaEmbedModel, prompt: Text("e.g. nomic-embed-text"))
+                    TextField(s.embeddingModel, text: $settings.ollamaEmbedModel, prompt: Text("e.g. nomic-embed-text"))
                         .font(.system(size: 12, design: .monospaced))
 
                     if settings.llmProvider != .ollama {
@@ -109,20 +120,20 @@ struct SettingsView: View {
                             .font(.system(size: 12, design: .monospaced))
                     }
                 case .openAICompatible:
-                    TextField("Endpoint URL", text: $settings.openAIEmbedBaseURL, prompt: Text("http://localhost:8080"))
+                    TextField(s.endpointURL, text: $settings.openAIEmbedBaseURL, prompt: Text("http://localhost:8080"))
                         .font(.system(size: 12, design: .monospaced))
 
-                    SecureField("API Key (optional)", text: $settings.openAIEmbedApiKey)
+                    SecureField(s.apiKeyOptional, text: $settings.openAIEmbedApiKey)
                         .font(.system(size: 12, design: .monospaced))
 
-                    TextField("Model", text: $settings.openAIEmbedModel, prompt: Text("e.g. text-embedding-3-small"))
+                    TextField(s.embeddingModel, text: $settings.openAIEmbedModel, prompt: Text("e.g. text-embedding-3-small"))
                         .font(.system(size: 12, design: .monospaced))
                 }
             }
 
-            Section("Audio Input") {
-                Picker("Microphone", selection: $settings.inputDeviceID) {
-                    Text("System Default").tag(AudioDeviceID(0))
+            Section(s.audioInput) {
+                Picker(s.microphone, selection: $settings.inputDeviceID) {
+                    Text(s.systemDefault).tag(AudioDeviceID(0))
                     ForEach(inputDevices, id: \.id) { device in
                         Text(device.name).tag(device.id)
                     }
@@ -130,8 +141,8 @@ struct SettingsView: View {
                 .font(.system(size: 12))
             }
 
-            Section("Transcription") {
-                Picker("Model", selection: $settings.transcriptionModel) {
+            Section(s.transcription) {
+                Picker(s.model, selection: $settings.transcriptionModel) {
                     ForEach(TranscriptionModel.allCases) { model in
                         Text(model.displayName).tag(model)
                     }
@@ -140,35 +151,40 @@ struct SettingsView: View {
 
                 if settings.transcriptionModel.supportsExplicitLanguageHint {
                     TextField(
-                        "\(settings.transcriptionModel.localeFieldTitle) (e.g. en-US)",
+                        "\(s.localeFieldTitle(for: settings.transcriptionModel)) (e.g. en-US)",
                         text: $settings.transcriptionLocale
                     )
                     .font(.system(size: 12, design: .monospaced))
                 }
 
-                Text(settings.transcriptionModel.localeHelpText)
+                Text(s.localeHelpText(for: settings.transcriptionModel))
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+
+                if settings.transcriptionModel == .remoteQwen3ASR {
+                    TextField(s.serverURL, text: $settings.remoteASRBaseURL, prompt: Text("http://mac-mini.local:9876"))
+                        .font(.system(size: 12, design: .monospaced))
+                }
             }
 
-            Section("Privacy") {
-                Toggle("Hide from screen sharing", isOn: $settings.hideFromScreenShare)
+            Section(s.privacy) {
+                Toggle(s.hideFromScreenSharing, isOn: $settings.hideFromScreenShare)
                     .font(.system(size: 12))
-                Text("When enabled, the app is invisible during screen sharing and recording.")
+                Text(s.hideFromScreenSharingDesc)
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             }
 
-            Section("Updates") {
-                Toggle("Automatically check for updates", isOn: Binding(
+            Section(s.updates) {
+                Toggle(s.autoCheckUpdates, isOn: Binding(
                     get: { updater.automaticallyChecksForUpdates },
                     set: { updater.automaticallyChecksForUpdates = $0 }
                 ))
                 .font(.system(size: 12))
             }
 
-            Section("Meeting Templates") {
+            Section(s.meetingTemplates) {
                 ForEach(coordinator.templateStore.templates) { template in
                     HStack {
                         Image(systemName: template.icon)
@@ -181,7 +197,7 @@ struct SettingsView: View {
                             Image(systemName: "lock")
                                 .font(.system(size: 10))
                                 .foregroundStyle(.tertiary)
-                            Button("Reset") {
+                            Button(s.reset) {
                                 coordinator.templateStore.resetBuiltIn(id: template.id)
                             }
                             .font(.system(size: 11))
@@ -204,10 +220,10 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         // Name
                         VStack(alignment: .leading, spacing: 3) {
-                            Text("Name")
+                            Text(s.name)
                                 .font(.system(size: 11, weight: .medium))
                                 .foregroundStyle(.secondary)
-                            TextField("e.g. Sprint Planning", text: $newTemplateName)
+                            TextField(s.templateNamePlaceholder, text: $newTemplateName)
                                 .font(.system(size: 12))
                                 .textFieldStyle(.roundedBorder)
                                 .frame(maxWidth: .infinity)
@@ -216,7 +232,7 @@ struct SettingsView: View {
 
                         // Icon picker
                         VStack(alignment: .leading, spacing: 3) {
-                            Text("Icon")
+                            Text(s.icon)
                                 .font(.system(size: 11, weight: .medium))
                                 .foregroundStyle(.secondary)
                             IconPickerGrid(selected: $newTemplateIcon)
@@ -224,15 +240,15 @@ struct SettingsView: View {
 
                         // System prompt
                         VStack(alignment: .leading, spacing: 3) {
-                            Text("Notes Prompt")
+                            Text(s.notesPrompt)
                                 .font(.system(size: 11, weight: .medium))
                                 .foregroundStyle(.secondary)
-                            Text("Instructions for how the AI should format notes for this meeting type.")
+                            Text(s.notesPromptDesc)
                                 .font(.system(size: 10))
                                 .foregroundStyle(.tertiary)
                             ZStack(alignment: .topLeading) {
                                 if newTemplatePrompt.isEmpty {
-                                    Text("e.g. You are a meeting notes assistant. Given a transcript, produce structured notes with sections for...")
+                                    Text(s.templatePromptPlaceholder)
                                         .font(.system(size: 11))
                                         .foregroundStyle(.quaternary)
                                         .padding(.top, 6)
@@ -252,11 +268,11 @@ struct SettingsView: View {
                         }
 
                         HStack {
-                            Button("Cancel") {
+                            Button(s.cancel) {
                                 resetNewTemplateForm()
                             }
                             .buttonStyle(.plain)
-                            Button("Save") {
+                            Button(s.save) {
                                 let template = MeetingTemplate(
                                     id: UUID(),
                                     name: trimmedTemplateName,
@@ -273,7 +289,7 @@ struct SettingsView: View {
                     }
                     .padding(.vertical, 4)
                 } else {
-                    Button("New Template") {
+                    Button(s.newTemplate) {
                         isAddingTemplate = true
                         Task { @MainActor in
                             focusedTemplateField = .name
@@ -295,7 +311,7 @@ struct SettingsView: View {
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
-        panel.message = "Choose a folder containing your knowledge base documents (.md, .txt)"
+        panel.message = s.chooseKBDocsMessage
 
         if panel.runModal() == .OK, let url = panel.url {
             settings.kbFolderPath = url.path
@@ -307,7 +323,7 @@ struct SettingsView: View {
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
-        panel.message = "Choose where to save meeting transcripts"
+        panel.message = s.chooseNotesMessage
 
         if panel.runModal() == .OK, let url = panel.url {
             settings.notesFolderPath = url.path

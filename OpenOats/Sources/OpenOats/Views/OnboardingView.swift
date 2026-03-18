@@ -2,30 +2,11 @@ import SwiftUI
 
 struct OnboardingView: View {
     @Binding var isPresented: Bool
+    let lang: AppLanguage
     @State private var currentStep = 0
 
-    private let steps: [(icon: String, title: String, body: String)] = [
-        (
-            "waveform.circle",
-            "Welcome to OpenOats",
-            "A real-time meeting copilot that listens to your conversations and generates smart talking points — all running locally on your Mac."
-        ),
-        (
-            "text.quote",
-            "Live Transcript",
-            "Your conversation is transcribed in real time. \"You\" captures your mic, \"Them\" captures system audio from the other side. Expand the transcript panel to follow along."
-        ),
-        (
-            "lightbulb",
-            "AI Suggestions",
-            "As the conversation progresses, OpenOats pulls relevant context from your knowledge base and suggests talking points. The best suggestions surface automatically."
-        ),
-        (
-            "rectangle.on.rectangle",
-            "Floating Overlay",
-            "Use the overlay button to pop out a compact floating panel — it stays on top of your meeting app so you can glance at suggestions without switching windows."
-        ),
-    ]
+    private var s: Strings { Strings(lang: lang) }
+    private var steps: [(icon: String, title: String, body: String)] { s.onboardingSteps }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -69,7 +50,7 @@ struct OnboardingView: View {
 
             // Buttons
             HStack {
-                Button("Skip") {
+                Button(s.skip) {
                     finish()
                 }
                 .buttonStyle(.plain)
@@ -87,7 +68,7 @@ struct OnboardingView: View {
                         finish()
                     }
                 } label: {
-                    Text(currentStep < steps.count - 1 ? "Next" : "Get Started")
+                    Text(currentStep < steps.count - 1 ? s.next : s.getStarted)
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 20)
