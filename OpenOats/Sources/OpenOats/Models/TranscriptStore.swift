@@ -12,27 +12,65 @@ final class TranscriptStore {
     /// Count of finalized them-utterances since last state update
     private var themUtterancesSinceStateUpdate: Int = 0
 
+    // MARK: - Auto echo suppression
+
+    /// Tracks recent "you" utterances: true = echo (matched "them"), false = unique
+    private var recentYouEchoResults: [Bool] = []
+    /// When true, all "you" utterances are suppressed while "them" is active
+    private(set) var autoListenMode = false
+    /// Timestamp of last "them" utterance for activity detection
+    private var lastThemTimestamp: Date?
+
     func append(_ utterance: Utterance) {
-        // Deduplicate: when mic picks up system audio, the same speech
-        // may appear as both "you" and "them" within a short window.
-        // Drop the "you" utterance if a similar "them" utterance exists nearby.
-        if utterance.speaker == .you, isDuplicateOfRecentThem(utterance) {
-            return
+        if utterance.speaker == .you {
+            let isEcho = isDuplicateOfRecentThem(utterance)
+
+            // Track echo history (sliding window of 5)
+            recentYouEchoResults.append(isEcho)
+            if recentYouEchoResults.count > 5 {
+                recentYouEchoResults.removeFirst()
+            }
+
+            // Enter auto-listen mode when 3+ of last 5 "you" utterances were echo
+            let echoCount = recentYouEchoResults.filter { $0 }.count
+            if echoCount >= 3 {
+                autoListenMode = true
+            }
+
+            // In auto-listen mode, suppress "you" while "them" is actively speaking
+            if autoListenMode {
+                if isEcho || themIsActive {
+                    return
+                }
+                // "Them" went silent and "you" is unique → exit auto-listen
+                autoListenMode = false
+                recentYouEchoResults.removeAll()
+            } else if isEcho {
+                return
+            }
         }
+
         utterances.append(utterance)
         if utterance.speaker == .them {
             themUtterancesSinceStateUpdate += 1
+            lastThemTimestamp = utterance.timestamp
         }
+    }
+
+    /// Whether "them" speaker has been active within the last 8 seconds.
+    private var themIsActive: Bool {
+        guard let last = lastThemTimestamp else { return false }
+        return Date().timeIntervalSince(last) < 8
     }
 
     /// Check if a "you" utterance is a duplicate of a recent "them" utterance.
     private func isDuplicateOfRecentThem(_ utterance: Utterance) -> Bool {
-        let window: TimeInterval = 5 // seconds
+        let window: TimeInterval = 6
         let now = utterance.timestamp
-        for recent in utterances.suffix(5).reversed() {
+        for recent in utterances.suffix(6).reversed() {
             guard recent.speaker == .them else { continue }
             guard abs(recent.timestamp.timeIntervalSince(now)) < window else { continue }
-            if textSimilarity(recent.text, utterance.text) > 0.6 {
+            if textSimilarity(recent.text, utterance.text) > 0.5 {
                 return true
             }
         }
@@ -55,6 +93,9 @@ final class TranscriptStore {
         volatileThemText = ""
         conversationState = .empty
         themUtterancesSinceStateUpdate = 0
+        recentYouEchoResults.removeAll()
+        autoListenMode = false
+        lastThemTimestamp = nil
     }
 
     func updateConversationState(_ state: ConversationState) {
