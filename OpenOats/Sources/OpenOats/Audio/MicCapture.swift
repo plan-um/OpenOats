@@ -62,6 +62,11 @@ final class MicCapture: @unchecked Sendable {
             }
 
             let inputNode = engine.inputNode
+
+            // Enable voice processing for echo cancellation —
+            // prevents mic from transcribing audio playing through speakers.
+            try? inputNode.setVoiceProcessingEnabled(true)
+
             let format = inputNode.outputFormat(forBus: 0)
 
             diagLog("[MIC-3] inputNode format: sr=\(format.sampleRate) ch=\(format.channelCount) interleaved=\(format.isInterleaved) commonFormat=\(format.commonFormat.rawValue)")
