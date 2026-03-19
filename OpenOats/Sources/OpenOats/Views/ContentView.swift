@@ -206,9 +206,9 @@ struct ContentView: View {
             statusMessage: transcriptionEngine?.assetStatus,
             errorMessage: transcriptionEngine?.lastError,
             needsDownload: transcriptionEngine?.needsModelDownload ?? false,
+            lang: settings.appLanguage,
             onToggle: isRunning ? stopSession : startSession,
-            onConfirmDownload: confirmDownloadAndStart,
-            lang: settings.appLanguage
+            onConfirmDownload: confirmDownloadAndStart
         )
     }
 
