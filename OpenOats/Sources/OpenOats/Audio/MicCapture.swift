@@ -79,9 +79,11 @@ final class MicCapture: @unchecked Sendable {
                 return
             }
 
+            // Force mono tap — voice processing can inflate channelCount (e.g. 10ch)
+            // which AVAudioFormat(standardFormat:) doesn't support.
             guard let tapFormat = AVAudioFormat(
                 standardFormatWithSampleRate: format.sampleRate,
-                channels: format.channelCount
+                channels: 1
             ) else {
                 let msg = "Failed to build tap format from input format"
                 diagLog("[MIC-4-FAIL] \(msg)")
