@@ -10,7 +10,7 @@ Usage:
 API:
     POST /v1/transcribe
         Body: raw float32 PCM audio at 16kHz mono
-        Headers: X-Language (optional, e.g. "ko")
+        Headers: X-Language (optional, e.g. "Korean")
         Response: {"text": "transcribed text"}
 
     GET /health
@@ -19,59 +19,63 @@ API:
 
 import argparse
 import io
-import struct
-import sys
+import tempfile
+import os
 import numpy as np
-from fastapi import FastAPI, Request, Response
+import soundfile as sf
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 import uvicorn
 
 app = FastAPI(title="Qwen3-ASR Server")
 
-# Global model references
-processor = None
-model = None
-device = None
+# Global model reference
+asr_model = None
 MODEL_ID = "Qwen/Qwen3-ASR-1.7B"
+
+# Language code to full name mapping for Qwen3-ASR
+LANG_MAP = {
+    "ko": "Korean", "en": "English", "ja": "Japanese", "zh": "Chinese",
+    "es": "Spanish", "fr": "French", "de": "German", "pt": "Portuguese",
+    "ru": "Russian", "ar": "Arabic", "hi": "Hindi", "vi": "Vietnamese",
+    "th": "Thai", "id": "Indonesian", "tr": "Turkish", "it": "Italian",
+}
 
 
 def load_model():
-    """Load Qwen3-ASR-1.7B model and processor."""
-    global processor, model, device
+    """Load Qwen3-ASR-1.7B model."""
+    global asr_model
     import torch
-    from transformers import AutoProcessor, Qwen3AudioForConditionalGeneration
+    from qwen_asr import Qwen3ASRModel
 
     print(f"Loading {MODEL_ID}...")
 
-    # Use MPS on Apple Silicon, CPU otherwise
+    # Use MPS on Apple Silicon, CUDA if available, else CPU
     if torch.backends.mps.is_available():
         device = "mps"
     elif torch.cuda.is_available():
-        device = "cuda"
+        device = "cuda:0"
     else:
         device = "cpu"
 
-    processor = AutoProcessor.from_pretrained(MODEL_ID, trust_remote_code=True)
-    model = Qwen3AudioForConditionalGeneration.from_pretrained(
+    dtype = torch.float16 if device != "cpu" else torch.float32
+
+    asr_model = Qwen3ASRModel.from_pretrained(
         MODEL_ID,
-        torch_dtype=torch.float16 if device != "cpu" else torch.float32,
+        dtype=dtype,
         device_map=device,
-        trust_remote_code=True,
+        max_new_tokens=512,
     )
-    model.eval()
     print(f"Model loaded on {device}")
 
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "model": MODEL_ID, "device": str(device)}
+    return {"status": "ok", "model": MODEL_ID}
 
 
 @app.post("/v1/transcribe")
 async def transcribe(request: Request):
-    import torch
-    import soundfile as sf
-
     language = request.headers.get("X-Language", None)
     body = await request.body()
 
@@ -85,51 +89,22 @@ async def transcribe(request: Request):
     if len(samples) == 0:
         return JSONResponse({"text": ""})
 
-    # Write to WAV buffer for processor
-    wav_buffer = io.BytesIO()
-    sf.write(wav_buffer, samples, 16000, format="WAV", subtype="FLOAT")
-    wav_buffer.seek(0)
+    # Write to temp WAV file for qwen-asr
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+        sf.write(tmp.name, samples, 16000, format="WAV", subtype="FLOAT")
+        tmp_path = tmp.name
 
-    # Build conversation for Qwen3-Audio
-    lang_tag = f"<|{language}|>" if language else ""
-    conversation = [
-        {
-            "role": "user",
-            "content": [
-                {"type": "audio", "audio": wav_buffer},
-                {"type": "text", "text": f"{lang_tag}Transcribe the audio."},
-            ],
-        }
-    ]
+    try:
+        # Map short language codes to full names
+        lang_name = LANG_MAP.get(language, language) if language else None
 
-    text_prompt = processor.apply_chat_template(
-        conversation, add_generation_prompt=True, tokenize=False
-    )
-
-    audios, _ = processor.extract_audio(conversation)
-
-    inputs = processor(
-        text=text_prompt,
-        audios=audios,
-        return_tensors="pt",
-        padding=True,
-    )
-    inputs = {k: v.to(model.device) for k, v in inputs.items()}
-
-    with torch.no_grad():
-        generated_ids = model.generate(**inputs, max_new_tokens=512)
-
-    # Strip prompt tokens
-    generated_ids_trimmed = [
-        out_ids[len(in_ids):]
-        for in_ids, out_ids in zip(inputs["input_ids"], generated_ids)
-    ]
-
-    text = processor.batch_decode(
-        generated_ids_trimmed,
-        skip_special_tokens=True,
-        clean_up_tokenization_spaces=False,
-    )[0]
+        results = asr_model.transcribe(
+            audio=tmp_path,
+            language=lang_name,
+        )
+        text = results[0].text if results else ""
+    finally:
+        os.unlink(tmp_path)
 
     return {"text": text.strip()}
 
