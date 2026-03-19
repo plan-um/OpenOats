@@ -62,11 +62,6 @@ final class MicCapture: @unchecked Sendable {
             }
 
             let inputNode = engine.inputNode
-
-            // Enable voice processing for echo cancellation —
-            // prevents mic from transcribing audio playing through speakers.
-            try? inputNode.setVoiceProcessingEnabled(true)
-
             let format = inputNode.outputFormat(forBus: 0)
 
             diagLog("[MIC-3] inputNode format: sr=\(format.sampleRate) ch=\(format.channelCount) interleaved=\(format.isInterleaved) commonFormat=\(format.commonFormat.rawValue)")
@@ -79,11 +74,9 @@ final class MicCapture: @unchecked Sendable {
                 return
             }
 
-            // Force mono tap — voice processing can inflate channelCount (e.g. 10ch)
-            // which AVAudioFormat(standardFormat:) doesn't support.
             guard let tapFormat = AVAudioFormat(
                 standardFormatWithSampleRate: format.sampleRate,
-                channels: 1
+                channels: format.channelCount
             ) else {
                 let msg = "Failed to build tap format from input format"
                 diagLog("[MIC-4-FAIL] \(msg)")
